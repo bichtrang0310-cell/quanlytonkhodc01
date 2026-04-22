@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quản Lý Tồn Kho - KDC03</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0e1a;
+  --surface: #111827;
+  --surface2: #1a2235;
+  --border: #1e293b;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --accent: #3b82f6;
+  --accent-glow: rgba(59,130,246,0.15);
+  --red: #ef4444;
+  --red-bg: rgba(239,68,68,0.08);
+  --red-border: rgba(239,68,68,0.2);
+  --green: #22c55e;
+  --green-bg: rgba(34,197,94,0.08);
+  --green-border: rgba(34,197,94,0.2);
+  --yellow: #eab308;
+  --yellow-bg: rgba(234,179,8,0.08);
+  --orange: #f97316;
+}
+
+body {
+  font-family: 'Be Vietnam Pro', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.app { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+/* Header */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 24px 0; margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.header h1 {
+  font-size: 22px; font-weight: 700;
+  background: linear-gradient(135deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.header-sub { color: var(--text2); font-size: 13px; margin-top: 4px; }
+
+/* Upload Zone */
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 16px;
+  padding: 48px; text-align: center; cursor: pointer;
+  transition: all 0.3s; background: var(--surface);
+  margin-bottom: 28px; position: relative;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent); background: var(--accent-glow);
+}
+.upload-icon {
+  width: 56px; height: 56px; margin: 0 auto 16px;
+  background: var(--accent-glow); border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+}
+.upload-icon svg { width: 28px; height: 28px; color: var(--accent); }
+.upload-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.upload-hint { font-size: 13px; color: var(--text2); }
+.upload-zone input { display: none; }
+
+/* Stats Cards */
+.stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px; margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+.stat-label { font-size: 12px; color: var(--text2); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.stat-value { font-size: 28px; font-weight: 800; }
+.stat-card.total .stat-value { color: var(--accent); }
+.stat-card.negative .stat-value { color: var(--red); }
+.stat-card.positive .stat-value { color: var(--green); }
+.stat-card.zero .stat-value { color: var(--text2); }
+
+/* Filters */
+.filters {
+  display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+}
+.filter-btn {
+  padding: 8px 18px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text2); font-size: 13px;
+  font-weight: 500; cursor: pointer; transition: all 0.2s;
+  font-family: inherit; display: flex; align-items: center; gap: 6px;
+}
+.filter-btn:hover { border-color: var(--accent); color: var(--text); }
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.filter-btn.active.neg { background: var(--red); border-color: var(--red); }
+.filter-btn.active.pos { background: var(--green); border-color: var(--green); }
+.filter-btn.active.zero-f { background: #64748b; border-color: #64748b; }
+.filter-btn .badge {
+  background: rgba(255,255,255,0.2); padding: 1px 7px; border-radius: 8px;
+  font-size: 11px; font-weight: 600;
+}
+
+.search-box {
+  flex: 1; min-width: 220px; padding: 9px 16px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font-size: 13px; font-family: inherit; outline: none; transition: border 0.2s;
+}
+.search-box:focus { border-color: var(--accent); }
+.search-box::placeholder { color: #475569; }
+
+.sort-select {
+  padding: 9px 14px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text); font-size: 13px;
+  font-family: inherit; cursor: pointer; outline: none;
+}
+
+/* Table */
+.table-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden;
+}
+.table-info {
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; color: var(--text2);
+}
+.table-info strong { color: var(--text); }
+.export-btn {
+  padding: 6px 14px; border-radius: 8px; border: 1px solid var(--accent);
+  background: transparent; color: var(--accent); font-size: 12px;
+  font-weight: 500; cursor: pointer; font-family: inherit; transition: all 0.2s;
+}
+.export-btn:hover { background: var(--accent); color: #fff; }
+
+table { width: 100%; border-collapse: collapse; }
+thead { background: var(--surface2); }
+th {
+  padding: 12px 16px; text-align: left; font-size: 12px;
+  font-weight: 600; color: var(--text2); text-transform: uppercase;
+  letter-spacing: 0.5px; border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none; white-space: nowrap;
+}
+th:hover { color: var(--text); }
+th.sort-asc::after { content: ' ▲'; font-size: 10px; }
+th.sort-desc::after { content: ' ▼'; font-size: 10px; }
+
+td {
+  padding: 11px 16px; font-size: 13px; border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
+}
+tr:hover td { background: rgba(59,130,246,0.04); }
+tr:last-child td { border-bottom: none; }
+
+.code { font-family: 'JetBrains Mono', monospace; font-weight: 500; color: var(--accent); font-size: 12px; }
+.qty-neg { color: var(--red); font-weight: 700; }
+.qty-pos { color: var(--green); font-weight: 600; }
+.qty-zero { color: #475569; }
+.unit-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  background: rgba(148,163,184,0.1); font-size: 12px; color: var(--text2);
+}
+.highlight { background: rgba(234,179,8,0.2); border-radius: 2px; padding: 0 2px; }
+
+/* Pagination */
+.pagination {
+  display: flex; justify-content: center; align-items: center;
+  gap: 6px; padding: 16px; border-top: 1px solid var(--border);
+}
+.page-btn {
+  width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+  background: transparent; color: var(--text2); font-size: 13px;
+  cursor: pointer; font-family: inherit; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.page-btn:hover { border-color: var(--accent); color: var(--text); }
+.page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.page-btn:disabled { opacity: 0.3; cursor: default; }
+.page-ellipsis { color: var(--text2); padding: 0 4px; }
+
+/* Top Items */
+.top-section { margin-top: 28px; }
+.top-section h3 {
+  font-size: 16px; font-weight: 600; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.top-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 768px) { .top-grid { grid-template-columns: 1fr; } }
+
+.top-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px;
+}
+.top-card h4 {
+  font-size: 14px; font-weight: 600; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.top-card h4 .dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot-green { background: var(--green); }
+.dot-red { background: var(--red); }
+
+.top-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.top-item:last-child { border-bottom: none; }
+.top-rank {
+  width: 26px; height: 26px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; flex-shrink: 0;
+}
+.rank-gold { background: rgba(234,179,8,0.15); color: var(--yellow); }
+.rank-silver { background: rgba(148,163,184,0.12); color: #94a3b8; }
+.rank-bronze { background: rgba(249,115,22,0.12); color: var(--orange); }
+.rank-default { background: rgba(148,163,184,0.06); color: #64748b; }
+.top-info { flex: 1; min-width: 0; }
+.top-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-code { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.top-qty { font-size: 15px; font-weight: 700; flex-shrink: 0; }
+
+.bar-bg {
+  height: 4px; background: var(--border); border-radius: 2px; margin-top: 6px;
+}
+.bar-fill {
+  height: 100%; border-radius: 2px; transition: width 0.6s ease;
+}
+.bar-green { background: var(--green); }
+.bar-red { background: var(--red); }
+
+/* Empty State */
+.empty { display: none; text-align: center; padding: 60px 20px; color: var(--text2); }
+.empty.show { display: block; }
+.empty svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.4; }
+.empty p { font-size: 14px; }
+
+/* Loading */
+.loading { text-align: center; padding: 40px; color: var(--text2); display: none; }
+.loading.show { display: block; }
+.spinner {
+  width: 32px; height: 32px; border: 3px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Dashboard hidden by default */
+.dashboard { display: none; }
+.dashboard.show { display: block; }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .filters { flex-direction: column; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  td, th { padding: 8px 10px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1>📦 Quản Lý Tồn Kho</h1>
+      <div class="header-sub" id="fileInfo">Chưa có dữ liệu — Import file Excel để bắt đầu</div>
+    </div>
+    <div id="dateDisplay" style="font-size:13px;color:var(--text2)"></div>
+  </div>
+
+  <!-- Upload -->
+  <div class="upload-zone" id="uploadZone">
+    <div class="upload-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+    </div>
+    <div class="upload-title">Kéo thả file Excel vào đây</div>
+    <div class="upload-hint">hoặc click để chọn file (.xlsx, .xls, .csv)</div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Đang xử lý dữ liệu...</p>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="dashboard" id="dashboard">
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card total">
+        <div class="stat-label">Tổng mã hàng</div>
+        <div class="stat-value" id="statTotal">0</div>
+      </div>
+      <div class="stat-card negative">
+        <div class="stat-label">Tồn âm ⚠️</div>
+        <div class="stat-value" id="statNeg">0</div>
+      </div>
+      <div class="stat-card positive">
+        <div class="stat-label">Tồn dương</div>
+        <div class="stat-value" id="statPos">0</div>
+      </div>
+      <div class="stat-card zero">
+        <div class="stat-label">Hết hàng (0)</div>
+        <div class="stat-value" id="statZero">0</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">Tất cả <span class="badge" id="badgeAll">0</span></button>
+      <button class="filter-btn neg" data-filter="negative" onclick="setFilter('negative',this)">🔴 Tồn âm <span class="badge" id="badgeNeg">0</span></button>
+      <button class="filter-btn pos" data-filter="positive" onclick="setFilter('positive',this)">🟢 Tồn dương <span class="badge" id="badgePos">0</span></button>
+      <button class="filter-btn zero-f" data-filter="zero" onclick="setFilter('zero',this)">⚪ Hết hàng <span class="badge" id="badgeZero">0</span></button>
+      <input class="search-box" id="searchBox" type="text" placeholder="🔍 Tìm mã hàng, tên hàng...">
+      <select class="sort-select" id="sortSelect" onchange="applySort()">
+        <option value="code-asc">Mã hàng A→Z</option>
+        <option value="code-desc">Mã hàng Z→A</option>
+        <option value="qty-asc">Số lượng tăng dần</option>
+        <option value="qty-desc">Số lượng giảm dần</option>
+        <option value="name-asc">Tên A→Z</option>
+      </select>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <div class="table-info">
+        <span>Hiển thị <strong id="showCount">0</strong> / <strong id="totalCount">0</strong> mã hàng</span>
+        <button class="export-btn" onclick="exportFiltered()">⬇ Xuất Excel</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:50px">#</th>
+              <th onclick="sortBy('code')">Mã hàng hóa</th>
+              <th onclick="sortBy('name')">Tên hàng hóa</th>
+              <th onclick="sortBy('unit')">Đơn vị</th>
+              <th onclick="sortBy('qty')" style="text-align:right">Số lượng</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="emptyState">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9.172 16.172a4 4 0 015.656 0M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path d="M9 10h.01M15 10h.01"/></svg>
+        <p>Không tìm thấy kết quả phù hợp</p>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+
+    <!-- Top Items -->
+    <div class="top-section">
+      <h3>📊 Phân Tích Nhanh</h3>
+      <div class="top-grid">
+        <div class="top-card">
+          <h4><span class="dot dot-green"></span>Top 10 tồn nhiều nhất</h4>
+          <div id="topPositive"></div>
+        </div>
+        <div class="top-card">
+          <h4><span class="dot dot-red"></span>Top 10 tồn âm nhiều nhất</h4>
+          <div id="topNegative"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let allData = [];
+let filteredData = [];
+let currentFilter = 'all';
+let currentSearch = '';
+let currentSort = 'code-asc';
+let currentPage = 1;
+const PAGE_SIZE = 50;
+
+// Date display
+document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('vi-VN', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+
+// Upload handling
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+// Search debounce
+let searchTimer;
+document.getElementById('searchBox').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { currentSearch = e.target.value.trim().toLowerCase(); currentPage = 1; applyFilters(); }, 250);
+});
+
+function handleFile(file) {
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('dashboard').classList.remove('show');
+  uploadZone.style.display = 'none';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      // Auto-detect columns
+      const cols = Object.keys(json[0] || {});
+      const codeCol = cols.find(c => /mã|ma|code|sku/i.test(c)) || cols[0];
+      const nameCol = cols.find(c => /tên|ten|name|hàng|hang/i.test(c) && !/mã|ma|code/i.test(c)) || cols[1];
+      const unitCol = cols.find(c => /đơn vị|don vi|unit|dvt/i.test(c)) || cols[2];
+      const qtyCol = cols.find(c => /số lượng|so luong|qty|quantity|tồn|ton|sl/i.test(c)) || cols[3];
+
+      allData = json.map(row => ({
+        code: String(row[codeCol] || '').trim(),
+        name: String(row[nameCol] || '').trim(),
+        unit: String(row[unitCol] || '').trim(),
+        qty: parseFloat(row[qtyCol]) || 0
+      })).filter(r => r.code);
+
+      document.getElementById('fileInfo').textContent = `📄 ${file.name} — ${allData.length.toLocaleString()} mã hàng`;
+      initDashboard();
+    } catch (err) {
+      alert('Lỗi đọc file: ' + err.message);
+      uploadZone.style.display = '';
+    }
+    document.getElementById('loading').classList.remove('show');
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function initDashboard() {
+  const neg = allData.filter(d => d.qty < 0).length;
+  const pos = allData.filter(d => d.qty > 0).length;
+  const zero = allData.filter(d => d.qty === 0).length;
+
+  document.getElementById('statTotal').textContent = allData.length.toLocaleString();
+  document.getElementById('statNeg').textContent = neg.toLocaleString();
+  document.getElementById('statPos').textContent = pos.toLocaleString();
+  document.getElementById('statZero').textContent = zero.toLocaleString();
+
+  document.getElementById('badgeAll').textContent = allData.length.toLocaleString();
+  document.getElementById('badgeNeg').textContent = neg.toLocaleString();
+  document.getElementById('badgePos').textContent = pos.toLocaleString();
+  document.getElementById('badgeZero').textContent = zero.toLocaleString();
+
+  renderTopItems();
+  applyFilters();
+  document.getElementById('dashboard').classList.add('show');
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter; currentPage = 1;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function applySort() {
+  currentSort = document.getElementById('sortSelect').value;
+  applyFilters();
+}
+
+function sortBy(field) {
+  const map = { code: 'code', name: 'name', unit: 'unit', qty: 'qty' };
+  const key = map[field];
+  if (currentSort === `${field}-asc`) currentSort = `${field}-desc`;
+  else currentSort = `${field}-asc`;
+  document.getElementById('sortSelect').value = '';
+  applyFilters();
+}
+
+function applyFilters() {
+  filteredData = allData.filter(d => {
+    if (currentFilter === 'negative' && d.qty >= 0) return false;
+    if (currentFilter === 'positive' && d.qty <= 0) return false;
+    if (currentFilter === 'zero' && d.qty !== 0) return false;
+    if (currentSearch) {
+      const s = currentSearch;
+      return d.code.toLowerCase().includes(s) || d.name.toLowerCase().includes(s);
+    }
+    return true;
+  });
+
+  // Sort
+  const [field, dir] = currentSort.split('-');
+  const mul = dir === 'desc' ? -1 : 1;
+  filteredData.sort((a, b) => {
+    if (field === 'qty') return (a.qty - b.qty) * mul;
+    const va = (a[field] || '').toLowerCase();
+    const vb = (b[field] || '').toLowerCase();
+    return va.localeCompare(vb, 'vi') * mul;
+  });
+
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  const total = filteredData.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (currentPage > pages) currentPage = pages;
+
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const slice = filteredData.slice(start, start + PAGE_SIZE);
+
+  document.getElementById('showCount').textContent = total.toLocaleString();
+  document.getElementById('totalCount').textContent = allData.length.toLocaleString();
+
+  if (slice.length === 0) {
+    tbody.innerHTML = '';
+    document.getElementById('emptyState').classList.add('show');
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+  document.getElementById('emptyState').classList.remove('show');
+
+  tbody.innerHTML = slice.map((d, i) => {
+    const idx = start + i + 1;
+    const qtyClass = d.qty < 0 ? 'qty-neg' : d.qty > 0 ? 'qty-pos' : 'qty-zero';
+    const qtyDisplay = d.qty < 0 ? d.qty.toLocaleString() : d.qty > 0 ? '+' + d.qty.toLocaleString() : '0';
+    const nameHtml = currentSearch ? highlightText(d.name, currentSearch) : escapeHtml(d.name);
+    const codeHtml = currentSearch ? highlightText(d.code, currentSearch) : escapeHtml(d.code);
+    return `<tr>
+      <td style="color:#475569;font-size:12px">${idx}</td>
+      <td><span class="code">${codeHtml}</span></td>
+      <td>${nameHtml}</td>
+      <td><span class="unit-badge">${escapeHtml(d.unit)}</span></td>
+      <td style="text-align:right"><span class="${qtyClass}">${qtyDisplay}</span></td>
+    </tr>`;
+  }).join('');
+
+  renderPagination(pages);
+}
+
+function renderPagination(pages) {
+  if (pages <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+  let html = `<button class="page-btn" onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+
+  const range = [];
+  range.push(1);
+  for (let i = Math.max(2, currentPage - 2); i <= Math.min(pages - 1, currentPage + 2); i++) range.push(i);
+  if (pages > 1) range.push(pages);
+
+  let last = 0;
+  for (const p of [...new Set(range)].sort((a, b) => a - b)) {
+    if (p - last > 1) html += '<span class="page-ellipsis">…</span>';
+    html += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+    last = p;
+  }
+  html += `<button class="page-btn" onclick="goPage(${currentPage + 1})" ${currentPage === pages ? 'disabled' : ''}>›</button>`;
+  document.getElementById('pagination').innerHTML = html;
+}
+
+function goPage(p) {
+  const pages = Math.ceil(filteredData.length / PAGE_SIZE);
+  if (p < 1 || p > pages) return;
+  currentPage = p;
+  renderTable();
+  document.querySelector('.table-wrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderTopItems() {
+  const topPos = [...allData].filter(d => d.qty > 0).sort((a, b) => b.qty - a.qty).slice(0, 10);
+  const topNeg = [...allData].filter(d => d.qty < 0).sort((a, b) => a.qty - b.qty).slice(0, 10);
+
+  const maxPos = topPos[0]?.qty || 1;
+  const maxNeg = Math.abs(topNeg[0]?.qty) || 1;
+
+  document.getElementById('topPositive').innerHTML = topPos.map((d, i) => renderTopItem(d, i, maxPos, 'green')).join('');
+  document.getElementById('topNegative').innerHTML = topNeg.map((d, i) => renderTopItem(d, i, maxNeg, 'red', true)).join('');
+}
+
+function renderTopItem(d, i, max, color, isNeg = false) {
+  const rankClass = i === 0 ? 'rank-gold' : i === 1 ? 'rank-silver' : i === 2 ? 'rank-bronze' : 'rank-default';
+  const val = isNeg ? Math.abs(d.qty) : d.qty;
+  const pct = (val / max * 100).toFixed(0);
+  const display = isNeg ? d.qty.toLocaleString() : '+' + d.qty.toLocaleString();
+  return `<div class="top-item">
+    <div class="top-rank ${rankClass}">${i + 1}</div>
+    <div class="top-info">
+      <div class="top-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</div>
+      <div class="top-code">${escapeHtml(d.code)} · ${escapeHtml(d.unit)}</div>
+      <div class="bar-bg"><div class="bar-fill bar-${color}" style="width:${pct}%"></div></div>
+    </div>
+    <div class="top-qty" style="color:var(--${color})">${display}</div>
+  </div>`;
+}
+
+function exportFiltered() {
+  const ws = XLSX.utils.json_to_sheet(filteredData.map(d => ({
+    'Mã hàng hóa': d.code,
+    'Tên hàng hóa': d.name,
+    'Đơn vị': d.unit,
+    'Số lượng': d.qty
+  })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Tồn kho');
+  XLSX.writeFile(wb, `TonKho_${currentFilter}_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+function highlightText(text, q) {
+  const safe = escapeHtml(text);
+  const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return safe.replace(new RegExp(`(${safeQ})`, 'gi'), '<span class="highlight">$1</span>');
+}
+</script>
+</body>
+</html>
